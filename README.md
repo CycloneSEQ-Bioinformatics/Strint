@@ -1,3 +1,11 @@
+   _____ _______ _____  _____ _   _ _____ _______ 
+  / ____|__   __|  __ \|_   _| \ | |_   _|__   __|
+ | (___    | |  | |__) | | | |  \| | | |    | |   
+  \___ \   | |  |  _  /  | | | . ` | | |    | |   
+  ____) |  | |  | | \ \ _| |_| |\  |_| |_   | |   
+ |_____/   |_|  |_|  \_\_____|_| \_|_____|  |_|   
+                                                  
+
 # Strinit
 Strinit: A single-cell preprocessing toolkit for full-length transcript identification, barcode demultiplexing, and UMI extraction.
 
