@@ -109,7 +109,9 @@ def set_parser():
         help="Maximum edit distance threshold for barcode correction (default: 3).")
     parser.add_argument("--minQ", type=int, default=10,
         help="Minimum quality score for barcode assignment (default: 10).")
-
+    
+    parser.add_argument("--threads", type=int, default=256,
+        help="Number of threads to used (default: 256).")
     args = parser.parse_args()
 
     # 处理输出目录

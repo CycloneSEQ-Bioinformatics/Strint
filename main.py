@@ -7,156 +7,41 @@ import numpy as np
 from matplotlib import pyplot as plt
 import zipfile
 import io
-from fast_edit_distance import edit_distance
+from fast_edit_distance import edit_distance, sub_edit_distance
 from io import StringIO
+import multiprocessing as mp
+import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from utils import *
+from args_parser import set_parser
 
-# a light class for a read in fastq file
-read_tuple = namedtuple('read_tuple', ['id', 'seq', 'q_letter'])
-def fastq_parser(file_handle):
-    while True:
-        id = next(file_handle, None)
-        if id is None:
-            break
-        seq = next(file_handle)
-        next(file_handle) # skip  '+'
-        q_letter = next(file_handle)
-        yield read_tuple(id[1:].split()[0], seq.strip(), q_letter.strip()) #每次yield一条read的信息
+args = set_parser()
+fl_fq = args.fastq_fns
+out_dir = args.out_dir
 
-# split any iterator in to batches  
-def batch_iterator(iterator, batch_size):
-    """generateor of batches of items in a iterator with batch_size.
-    """
-    batch = []
-    i=0
-    for entry in iterator:
-        i += 1
-        batch.append(entry)
-        
-        if i == batch_size:
-            yield batch
-            batch = []
-            i = 0
-    if len(batch):  #保证批次处理的时候，最后一批不满足batch_size的那些数据，也可以被yield
-        yield batch
+putative_bc_out = args.putative_bc_out
+putative_bc_csv = args.putative_bc_out
+out_whitelist_fn = args.out_whitelist_fn
+out_emptydrop_fn = args.out_emptydrop_fn
+out_plot_fn = args.out_plot_fn  
+fastq_out = args.fastq_out
+fastq_fns = args.fastq_fns
+full_bc_whitelist = args.full_bc_whitelist
+whitelsit_csv = args.full_bc_whitelist
+batch_size = args.batch_size
+batchsize = args.batch_size
+BC_fixed = args.BC_fixed
+umi_fixed = args.umi_fixed
+minQ = args.minQ
+exp_cells = args.exp_cells
+max_ed = args.max_ed
 
-def read_batch_generator(fastq_fns, batch_size):   #输出batch size read info
-    """Generator of barches of reads from list of fastq files
+DEFAULT_EMPTY_DROP_MIN_ED = args.DEFAULT_EMPTY_DROP_MIN_ED
+DEFAULT_EMPTY_DROP_NUM = args.DEFAULT_EMPTY_DROP_NUM
+n_process = args.threads
 
-    Args:
-        fastq_fns (list): fastq filenames
-        batch_size (int, optional):  Defaults to 100.
-    """
-    for fn in fastq_fns:
-        if str(fn).endswith('.gz'):
-            with gzip.open(fn, "rt") as handle:
-                fastq = fastq_parser(handle)
-                read_batch = batch_iterator(fastq, batch_size=batch_size)
-                for batch in read_batch:
-                    yield batch
-        else:
-            with open(fn, "r") as handle:
-                fastq = fastq_parser(handle)
-                read_batch = batch_iterator(fastq, batch_size=batch_size)
-                for batch in read_batch:
-                    yield batch
-
-def reverse_complement(seq):
-    '''
-    Args: <str>
-        queried seq
-    Returns: <str>
-        reverse_complement seq
-    '''
-    comp = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 
-                    'a': 't', 'c': 'g', 'g': 'c', 't': 'a'}
-    letters = \
-        [comp[base] if base in comp.keys() else base for base in seq]
-    return ''.join(letters)[::-1]
-
-def polyA_trimming_idx(seq, seed="AAAA", window=10, min_A=7, min_tail_len=8):
-    """
-    从 read 末端往前检测 polyA，返回 polyA 起始的绝对坐标（0-based）。
-    若未检测到则返回 None。
-    """
-    s = seq.upper()
-    anchor = s.rfind(seed)  # 最右侧 seed 的起点（绝对坐标）
-    if anchor == -1:
-        return None
-
-    polyA_start = anchor  # 先把 polyA 起点放在 seed 起点
-    i = anchor - 1        # 从 seed 之前的碱基开始，向左延伸
-
-    while i >= 0:
-        if s[i] == 'A':
-            polyA_start = i
-            i -= 1
-            continue
-        left = max(0, i - window + 1)
-        if s[left:i+1].count('A') >= min_A:
-            polyA_start = i
-            i -= 1
-            continue
-        break
-
-    # 确保 polyA 足够长
-    if len(s) - polyA_start < min_tail_len:
-        return None
-    return polyA_start
-    
-def polyA_trimming_idx_neg(seq, **kwargs):
-    idx_abs = polyA_trimming_idx(seq, **kwargs)  # 用上面的绝对坐标函数
-    if idx_abs is None:
-        return None
-    return idx_abs - len(seq)  # 负数：从末尾往前的偏移
-
-def get_bc_whitelist(raw_bc_count, full_bc_whitelist=None, exp_cells=None, out_plot_fn=out_plot_fn,empty_max_count = np.inf):
-    percentile_count_thres = default_count_threshold_calculation
-    whole_whitelist = []
-    if full_bc_whitelist.endswith('.zip'):
-        with zipfile.ZipFile(full_bc_whitelist) as zf:
-            # check if there is only 1 file
-            assert len(zf.namelist()) == 1
-
-            with io.TextIOWrapper(zf.open(zf.namelist()[0]), encoding="utf-8") as f:
-                for line in f:
-                    whole_whitelist.append(reverse_complement(line.strip()))
-    else:
-        with open(full_bc_whitelist, 'r') as f:
-            for line in f:
-                whole_whitelist.append(reverse_complement(line.strip()))
-    
-    whole_whitelist = set(whole_whitelist)
-    raw_bc_count = {k:v for k,v in raw_bc_count.items() if k in whole_whitelist}
-    #print(len(raw_bc_count))
-    t = percentile_count_thres(list(raw_bc_count.values()), exp_cells) #t是
-    knee_plot(list(raw_bc_count.values()), t, out_plot_fn)
-    cells_bc = {k:v for k,v in raw_bc_count.items() if v > t}
-    
-    ept_bc = []
-    ept_bc_max_count = min(cells_bc.values()) #空bc最大的read支持数
-    ept_bc_max_count = min(ept_bc_max_count, empty_max_count)
-    #print(ept_bc_max_count)
-
-    ept_bc_candidate = [k for k,v in raw_bc_count.items() if v < ept_bc_max_count]
-    #print(len(ept_bc_candidate))
-    for k in ept_bc_candidate:
-        if min([edit_distance(k, x, max_ed = DEFAULT_EMPTY_DROP_MIN_ED) for x in cells_bc.keys()]) >= DEFAULT_EMPTY_DROP_MIN_ED:
-            ept_bc.append(k)
-            #print(len(ept_bc))
-        # we don't need too much BC in this list
-        if len(ept_bc) >  DEFAULT_EMPTY_DROP_NUM:
-            break
-    return cells_bc, ept_bc
-
-fl_fq = ["/home/liyy/2.project/ScRNA-Seq/Glycine_Sc/6011_4/6011.full-length.fq.gz"] #3,176,234 read count 
-batch_size = 1000
+########################
 read_batchs = read_batch_generator(fl_fq, batch_size)
-
-def rfind_with_negative(s, sub):
-    pos = s.rfind(sub)
-    if pos == -1:
-        return -1  # not found 
-    return pos - len(s)
 
 read_ids = []
 putative_bcs = []
@@ -168,8 +53,8 @@ umi_fixed_locs = []  #umi固定序列的5'端位置
 #trim_idxs = []
 post_umi_flankings = []
 polyA_starts = []
-BC_fixed = "GGAAGG" #reverse complement
-umi_fixed = "CATCG"
+BC_fixed = reverse_complement(BC_fixed) #reverse complement
+umi_fixed = reverse_complement(umi_fixed)
 
 for batch in read_batchs:
     for read_info in batch:
@@ -303,7 +188,7 @@ for batch in read_batchs:
                 
         #break
 
-    break
+    #break
 
 
 rst_df = pd.DataFrame(
@@ -318,41 +203,9 @@ rst_df = pd.DataFrame(
         }
         )
 
-rst_df.to_csv("./putative_bc.csv",index=False)
+rst_df.to_csv(putative_bc_out, index=False)
 
-def default_count_threshold_calculation(count_array, exp_cells):
-    top_count = np.sort(count_array)[::-1][:exp_cells]
-    return np.quantile(top_count, 0.95)/20
-
-def knee_plot(counts, threshold=None, out_fn = 'knee_plot.png'):
-    """
-    Plot knee plot using the high-confidence putative BC counts
-
-    Args:
-        counts (list): high-confidence putative BC counts
-        threshold (int, optional): a line to show the count threshold. Defaults to None.
-    """
-    counts = sorted(counts)[::-1]
-    plt.figure(figsize=(8, 8))
-    plt.title(f'Barcode rank plot (from high-quality putative BC)')
-    plt.loglog(counts,marker = 'o', linestyle="", alpha = 1, markersize=6)
-    plt.xlabel('Barcodes')
-    plt.ylabel('Read counts')
-    plt.axhline(y=threshold, color='r', linestyle='--', label = 'cell calling threshold')
-    plt.legend()
-    plt.savefig(out_fn)
-
-
-dfs = pd.read_csv("./putative_bc.csv", chunksize=1_000_000)   #读取上一步输出的putative_bc.csv
-minQ = 10
-out_whitelist_fn = "./whitelist.csv"
-out_emptydrop_fn  = "./emtpy_bc_list.csv"
-full_bc_whitelist = "/home/liyy/1.data/C4_Cyclone/C4_blaze/C4_26bp.txt"
-exp_cells = 10000
-out_plot_fn = "knee_plot.png"
-DEFAULT_EMPTY_DROP_MIN_ED = 5
-DEFAULT_EMPTY_DROP_NUM = 2000 
-
+dfs = pd.read_csv(putative_bc_out, chunksize=1_000_000)   #读取上一步输出的putative_bc.csv
 
 raw_bc_count = Counter()
 for df in tqdm(dfs, desc = 'Counting high-quality putative BC', unit='M reads'): #按块读取 CSV → 过滤掉低质量 putative_bc → 统计高质量 putative_bc 的出现次数 → 累加到总的 Counter。
@@ -361,7 +214,7 @@ for df in tqdm(dfs, desc = 'Counting high-quality putative BC', unit='M reads'):
 #print(raw_bc_count.values())
 
 #try:
-bc_whitelist, ept_bc = get_bc_whitelist(raw_bc_count=raw_bc_count, full_bc_whitelist=full_bc_whitelist, exp_cells=exp_cells)
+bc_whitelist, ept_bc = get_bc_whitelist(raw_bc_count=raw_bc_count, full_bc_whitelist=full_bc_whitelist, exp_cells=exp_cells, out_plot_fn = out_plot_fn, DEFAULT_EMPTY_DROP_MIN_ED=DEFAULT_EMPTY_DROP_MIN_ED, DEFAULT_EMPTY_DROP_NUM=DEFAULT_EMPTY_DROP_NUM)
 
 with open(out_whitelist_fn, 'w') as f:
     for k in bc_whitelist.keys():
@@ -375,3 +228,16 @@ with open(out_emptydrop_fn, 'w') as f:
 #    print(f'Whitelist saved as `{out_whitelist_fn}`!')
 
 
+demul_count_tot, count_tot, big_df = assign_read(fastq_fns=fastq_fns, fastq_out = fastq_out, putative_bc_csv=putative_bc_csv, 
+                    whitelsit_csv=whitelsit_csv, max_ed=max_ed, n_process=n_process, batchsize=batchsize)
+
+#计算同时具有有效barcode和有效umi的read个数（也就是输出的fq的数量）
+mask = (big_df['BC_corrected'].notna()) & (big_df['BC_corrected'] != '') \
+       & (big_df['putative_umi'].notna()) & (big_df['putative_umi'] != '')
+
+double_count = mask.sum()
+
+print(f"Number of full length reads: {count_tot}")
+print(f"Number of reads with valid barcode: {demul_count_tot}")
+print(f"Number of reads with valid barcode and valid umi: {double_count}")
+print(f"Proportion of reads with valid barcodes: {np.round(count_tot/demul_count_tot, 3)}")
