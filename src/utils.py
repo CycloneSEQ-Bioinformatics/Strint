@@ -139,7 +139,7 @@ def knee_plot(counts, threshold=None, out_fn = 'knee_plot.png'):
     plt.legend()
     plt.savefig(out_fn)
 
-def get_bc_whitelist(raw_bc_count, full_bc_whitelist=None, exp_cells=None, out_plot_fn = None,empty_max_count = np.inf):
+def get_bc_whitelist(raw_bc_count, full_bc_whitelist=None, exp_cells=None, out_plot_fn = None,empty_max_count = np.inf, DEFAULT_EMPTY_DROP_MIN_ED=None, DEFAULT_EMPTY_DROP_NUM=None):
     percentile_count_thres = default_count_threshold_calculation
     whole_whitelist = []
     if full_bc_whitelist.endswith('.zip'):
@@ -157,7 +157,7 @@ def get_bc_whitelist(raw_bc_count, full_bc_whitelist=None, exp_cells=None, out_p
     
     whole_whitelist = set(whole_whitelist)
     raw_bc_count = {k:v for k,v in raw_bc_count.items() if k in whole_whitelist}
-    #print(len(raw_bc_count))
+    #print(len(raw_bc_count))`
     t = percentile_count_thres(list(raw_bc_count.values()), exp_cells) #t是
     knee_plot(list(raw_bc_count.values()), t, out_plot_fn)
     cells_bc = {k:v for k,v in raw_bc_count.items() if v > t}
