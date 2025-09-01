@@ -156,18 +156,18 @@ def get_bc_whitelist(raw_bc_count, full_bc_whitelist=None, exp_cells=None, out_p
                 whole_whitelist.append(reverse_complement(line.strip()))
     
     whole_whitelist = set(whole_whitelist)
-    raw_bc_count = {k:v for k,v in raw_bc_count.items() if k in whole_whitelist}
+    raw_bc_count = {k:v for k,v in raw_bc_count.items() if k in whole_whitelist} #所有在super list中的barcode
     #print(len(raw_bc_count))`
     t = percentile_count_thres(list(raw_bc_count.values()), exp_cells) #t是
     knee_plot(list(raw_bc_count.values()), t, out_plot_fn)
-    cells_bc = {k:v for k,v in raw_bc_count.items() if v > t}
-    
+    cells_bc = {k:v for k,v in raw_bc_count.items() if v > t} #rank plot中，虚线上面的barcode
+
     ept_bc = []
     ept_bc_max_count = min(cells_bc.values()) #空bc最大的read支持数
     ept_bc_max_count = min(ept_bc_max_count, empty_max_count)
     #print(ept_bc_max_count)
 
-    ept_bc_candidate = [k for k,v in raw_bc_count.items() if v < ept_bc_max_count]
+    ept_bc_candidate = [k for k,v in raw_bc_count.items() if v < ept_bc_max_count] #小于阈值，但是也是属于rank plot图中
     #print(len(ept_bc_candidate))
     for k in ept_bc_candidate:
         if min([edit_distance(k, x, max_ed = DEFAULT_EMPTY_DROP_MIN_ED) for x in cells_bc.keys()]) >= DEFAULT_EMPTY_DROP_MIN_ED:
@@ -231,7 +231,7 @@ def _read_and_bc_batch_generator_with_idx(fastq_fns, putative_bc_csv, batch_size
                     read_idx += batch_len
     putative_bc_f.close()
 
-def _match_bc_row(row, whitelist, max_ed, minQ):
+def _match_bc_row(row, whitelist, max_ed, minQ): #这里的whitelist就是指
     
     strand = '+'
     
