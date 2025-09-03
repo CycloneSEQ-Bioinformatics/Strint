@@ -1,0 +1,12 @@
+docker run -dit \
+  -v /home/liyy/1.data/REF:/REF \
+  -v /home/liyy/1.data/ONT_ScRNA_Data/BLAZE_data:/BLAZE_data \
+  --name igniternaseq_container \
+  ghcr.io/changqingw/igniternaseq:latest
+
+docker exec -it igniternaseq_container bash
+
+docker start igniternaseq_container
+docker exec -it igniternaseq_container bash
+
+### 跳板机连接镜像8787通讯失败
