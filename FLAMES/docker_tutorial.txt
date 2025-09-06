@@ -10,3 +10,104 @@ docker start igniternaseq_container
 docker exec -it igniternaseq_container bash
 
 ### 跳板机连接镜像8787通讯失败
+
+
+outdir <- tempfile() #创建一个临时目录
+dir.create(outdir) #创建一个临时目录
+# some example data
+# known cell barcodes, e.g. from coupled short-read sequencing
+bc_allow <- file.path(outdir, "bc_allow.tsv") #设置一个bc_allow.tsv文件
+R.utils::gunzip(
+  filename = system.file("extdata", "bc_allow.tsv.gz", package = "FLAMES"),
+  destname = bc_allow, remove = FALSE
+) #将镜像中的文件解压到指定文件
+# reference genome
+genome_fa <- file.path(outdir, "rps24.fa") #设置一个参考fasta
+R.utils::gunzip(
+  filename = system.file("extdata", "rps24.fa.gz", package = "FLAMES"),
+  destname = genome_fa, remove = FALSE
+) #将指定文件解压到fasta
+
+#构建一个pipeline
+pipeline <- SingleCellPipeline(
+  # use the default configs
+  #设置config相关信息
+  config_file = create_config(
+    outdir,
+    pipeline_parameters.demultiplexer = "flexiplex" #利用flexiplex进行barcode拆分
+  ),
+  outdir = outdir,
+  # the input fastq file
+  fastq = system.file("extdata", "fastq", "musc_rps24.fastq.gz", package = "FLAMES"),
+  # reference annotation file
+  annotation = system.file("extdata", "rps24.gtf.gz", package = "FLAMES"),
+  genome_fa = genome_fa,
+  barcodes_file = bc_allow
+)
+
+### 输出
+
+Writing configuration parameters to:  /tmp/RtmpcF6MkN/file1d74bf4821/config_file_29.json 
+Configured steps: 
+        barcode_demultiplex: TRUE
+        genome_alignment: TRUE
+        gene_quantification: TRUE
+        isoform_identification: TRUE
+        read_realignment: TRUE
+        transcript_quantification: TRUE
+        
+
+pipeline
+
+### 输出
+→ A FLAMES.SingleCellPipeline outputting to /tmp/RtmpcF6MkN/file1d74bf4821
+
+── Inputs 
+✔ fastq: ...ibrary/FLAMES/extdata/fastq/musc_rps24.fastq.gz #
+✔ annotation: .../lib/R/site-library/FLAMES/extdata/rps24.gtf.gz
+✔ genome_fa: /tmp/RtmpcF6MkN/file1d74bf4821/rps24.fa
+✔ barcodes_file: /tmp/RtmpcF6MkN/file1d74bf4821/bc_allow.tsv
+
+── Outputs 
+ℹ demultiplexed_fastq: matched_reads.fastq.gz
+ℹ deduped_fastq: matched_reads_dedup.fastq.gz
+ℹ genome_bam: align2genome.bam
+ℹ transcriptome_assembly: transcript_assembly.fa
+ℹ transcriptome_bam: realign2transcript.bam
+
+── Pipeline Steps 
+ℹ barcode_demultiplex (pending)
+ℹ genome_alignment (pending)
+ℹ gene_quantification (pending)
+ℹ isoform_identification (pending)
+ℹ read_realignment (pending)
+ℹ transcript_quantification (pending)
+
+### 以上都是预载（创造）一个流程
+
+### Running the pipeline
+
+#> ✔ A FLAMES.SingleCellPipeline outputting to /tmp/Rtmpe8Q1zr/file845345572071
+#> 
+#> ── Inputs
+#> ✔ fastq: ...ibrary/FLAMES/extdata/fastq/musc_rps24.fastq.gz
+#> ✔ annotation: /__w/_temp/Library/FLAMES/extdata/rps24.gtf.gz
+#> ✔ genome_fa: /tmp/Rtmpe8Q1zr/file845345572071/rps24.fa
+#> ✔ barcodes_file: /tmp/Rtmpe8Q1zr/file845345572071/bc_allow.tsv
+#> 
+#> ── Outputs
+#> ✔ demultiplexed_fastq: matched_reads.fastq.gz [217.0 KB]
+#> ✔ deduped_fastq: matched_reads_dedup.fastq.gz [203.7 KB]
+#> ✔ genome_bam: align2genome.bam [270.9 KB]
+#> ✔ novel_isoform_annotation: isoform_annotated.gff3 [7.4 KB]
+#> ✔ transcriptome_assembly: transcript_assembly.fa [8.4 KB]
+#> ✔ transcriptome_bam: realign2transcript.bam [394.0 KB]
+#> 
+#> ── Pipeline Steps
+#> ✔ barcode_demultiplex (completed in 0.43 sec)
+#> ✔ genome_alignment (completed in 0.35 sec)
+#> ✔ gene_quantification (completed in 0.81 sec)
+#> ✔ isoform_identification (completed in 0.47 sec)
+#> ✔ read_realignment (completed in 0.26 sec)
+#> ✔ transcript_quantification (completed in 0.56 sec)
+
