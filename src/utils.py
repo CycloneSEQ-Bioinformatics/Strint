@@ -11,6 +11,7 @@ from io import StringIO
 import multiprocessing as mp
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import os
 
 # a light class for a read in fastq file
 read_tuple = namedtuple('read_tuple', ['id', 'seq', 'q_letter'])
@@ -63,17 +64,17 @@ def read_batch_generator(fastq_fns, batch_size):   #输出batch size read info
                     yield batch
 
 def reverse_complement(seq):
-	'''
-	Args: <str>
-		queried seq
-	Returns: <str>
-		reverse_complement seq
-	'''
-	comp = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 
-					'a': 't', 'c': 'g', 'g': 'c', 't': 'a'}
-	letters = \
-		[comp[base] if base in comp.keys() else base for base in seq]
-	return ''.join(letters)[::-1]
+    '''
+    Args: <str>
+        queried seq
+    Returns: <str>
+        reverse_complement seq
+    '''
+    comp = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 
+                    'a': 't', 'c': 'g', 'g': 'c', 't': 'a'}
+    letters = \
+        [comp[base] if base in comp.keys() else base for base in seq]
+    return ''.join(letters)[::-1]
 
 def polyA_trimming_idx(seq, seed="AAAA", window=10, min_A=7, min_tail_len=8):
     """
@@ -104,7 +105,7 @@ def polyA_trimming_idx(seq, seed="AAAA", window=10, min_A=7, min_tail_len=8):
     if len(s) - polyA_start < min_tail_len:
         return None
     return polyA_start
-    
+
 def polyA_trimming_idx_neg(seq, **kwargs):
     idx_abs = polyA_trimming_idx(seq, **kwargs)  # 用上面的绝对坐标函数
     if idx_abs is None:
@@ -270,11 +271,12 @@ def _match_bc_row(row, whitelist, max_ed, minQ):
     out_umi = row.putative_umi
     return [bc_hit, out_umi, strand]
 
-def assign_read_batches(r_batch, whitelist, max_ed, gz, minQ=0):
+def assign_read_batches(r_batch, whitelist, max_ed, gz, minQ=0, emit_unmatched_fastq=True):
     read_batch, start_df_idx, df = r_batch
     df = df.fillna('')
     whitelist = set(whitelist)
     out_buffer = ''
+    unmatched_fastq_buffer = ''
     
     new_cols = []
     for row in df.itertuples():
@@ -290,6 +292,22 @@ def assign_read_batches(r_batch, whitelist, max_ed, gz, minQ=0):
             err_msg("Different order in putative bc file and input fastq!", printit = True)
             sys.exit()
         if not bc.BC_corrected or not bc.putative_umi: #BC_corrected这一列有没有  并且putative_umi这一列有没有 目前是完全匹配，所以可能比例较低
+            if emit_unmatched_fastq:
+                putative_bc = getattr(bc, "putative_bc", "")
+                if putative_bc:  # 确保不是空字符串
+                    # 统计 A 的比例
+                    a_count = putative_bc.count("A")
+                    a_ratio = a_count / len(putative_bc)
+        
+                    if a_ratio <= 0.5:  # 只有 A 含量 ≤ 50% 才输出
+                        seq = r.seq
+                        qscore = r.qscore
+                        header = (f"@NA_NA#{bc.read_id}_{getattr(bc, 'strand', '+')}"
+                                  f"\tCB:Z:NA\tUB:Z:NA")
+                        unmatched_fastq_buffer += header + '\n'
+                        unmatched_fastq_buffer += str(seq) + '\n'
+                        unmatched_fastq_buffer += '+\n'
+                        unmatched_fastq_buffer += qscore + '\n'
             continue
         #加上polyA的判断机制吧
         if bc.polyA_starts: #若polyA_starts不为空 目前为空的原因是umi固定序列左边的read太少，有可能是umi序列不完整
@@ -310,13 +328,22 @@ def assign_read_batches(r_batch, whitelist, max_ed, gz, minQ=0):
     else:
         b_out_buffer = out_buffer.encode('utf-8')
 
-    return df, b_out_buffer, demul_read_count, len(read_batch)
-        
+    if emit_unmatched_fastq:
+        b_unmatched_fastq = (gzip.compress(unmatched_fastq_buffer.encode('utf-8'))
+                             if gz else unmatched_fastq_buffer.encode('utf-8'))
+    else:
+        b_unmatched_fastq = None
+
+    return df, b_out_buffer, demul_read_count, len(read_batch), b_unmatched_fastq
+
 
 def assign_read(fastq_fns=None, fastq_out=None, putative_bc_csv=None, 
                     whitelsit_csv=None, max_ed=None,n_process=None, batchsize=None, minQ=0):
     
     gz = fastq_out.endswith('.gz') #判断输出文件是否为gz文件
+    out_dir = os.path.dirname(fastq_out)       # 输出目录
+    unmatched_out = os.path.join(out_dir, "unmatched_reads.fastq.gz")
+        
     r_batches = \
         _read_and_bc_batch_generator_with_idx(fastq_fns, putative_bc_csv, batchsize)
     
@@ -328,15 +355,18 @@ def assign_read(fastq_fns=None, fastq_out=None, putative_bc_csv=None,
     if n_process == 1:
         demul_count_tot = 0
         count_tot = 0
-        with open(fastq_out, 'wb') as output_handle:
+        with open(fastq_out, 'wb') as output_handle, open(unmatched_out, 'wb') as unmatched_handle:
             pbar = tqdm(unit="Reads", desc='Processed')
             for r_batch in r_batches:
-                _, b_fast_str, demul_count, read_count = assign_read_batches(r_batch, whitelist, max_ed,  gz, minQ=0)
+                _, b_fast_str, demul_count, read_count, b_unmatched_fastq = assign_read_batches(r_batch, whitelist, max_ed,  gz, minQ=0, emit_unmatched_fastq=True)
                 demul_count_tot += demul_count
                 count_tot += read_count
                 output_handle.write(b_fast_str)
+                if b_unmatched_fastq:
+                    unmatched_handle.write(b_unmatched_fastq)
                 pbar.update(read_count) #
         green_msg(f"Reads assignment completed. Demultiplexed read saved in {fastq_out}!")
+        green_msg(f"Unmatched reads saved in: {unmatched_out}!")
         
     else:
         rst_futures = multiprocessing_submit(assign_read_batches, 
@@ -351,17 +381,21 @@ def assign_read(fastq_fns=None, fastq_out=None, putative_bc_csv=None,
         demul_count_tot = 0
         count_tot = 0
         df_list = []
-        with open(fastq_out, 'wb') as output_handle:
+        with open(fastq_out, 'wb') as output_handle, open(unmatched_out, 'wb') as unmatched_handle:
             for f in rst_futures:
-                df, b_fast_str, demul_count, read_count = f.result()
+                df, b_fast_str, demul_count, read_count, b_unmatched_fastq = f.result()
                 demul_count_tot += demul_count
                 count_tot += read_count
                 output_handle.write(b_fast_str)
+
+                if b_unmatched_fastq:
+                    unmatched_handle.write(b_unmatched_fastq)
                 # 保存df
                 df_list.append(df)
         big_df = pd.concat(df_list, ignore_index=True)
     
         green_msg(f"Reads assignment completed. Demultiplexed read saved in {fastq_out}!")
+        green_msg(f"Unmatched reads saved in: {unmatched_out}!")
     
     return demul_count_tot, count_tot,big_df
 
