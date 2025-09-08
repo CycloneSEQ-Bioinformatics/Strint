@@ -156,18 +156,18 @@ def get_bc_whitelist(raw_bc_count, full_bc_whitelist=None, exp_cells=None, out_p
                 whole_whitelist.append(reverse_complement(line.strip()))
     
     whole_whitelist = set(whole_whitelist)
-    raw_bc_count = {k:v for k,v in raw_bc_count.items() if k in whole_whitelist} #所有在super list中的barcode
+    raw_bc_count = {k:v for k,v in raw_bc_count.items() if k in whole_whitelist}
     #print(len(raw_bc_count))`
     t = percentile_count_thres(list(raw_bc_count.values()), exp_cells) #t是
     knee_plot(list(raw_bc_count.values()), t, out_plot_fn)
-    cells_bc = {k:v for k,v in raw_bc_count.items() if v > t} #rank plot中，虚线上面的barcode
-
+    cells_bc = {k:v for k,v in raw_bc_count.items() if v > t}
+    
     ept_bc = []
     ept_bc_max_count = min(cells_bc.values()) #空bc最大的read支持数
     ept_bc_max_count = min(ept_bc_max_count, empty_max_count)
     #print(ept_bc_max_count)
 
-    ept_bc_candidate = [k for k,v in raw_bc_count.items() if v < ept_bc_max_count] #小于阈值，但是也是属于rank plot图中
+    ept_bc_candidate = [k for k,v in raw_bc_count.items() if v < ept_bc_max_count]
     #print(len(ept_bc_candidate))
     for k in ept_bc_candidate:
         if min([edit_distance(k, x, max_ed = DEFAULT_EMPTY_DROP_MIN_ED) for x in cells_bc.keys()]) >= DEFAULT_EMPTY_DROP_MIN_ED:
@@ -231,7 +231,7 @@ def _read_and_bc_batch_generator_with_idx(fastq_fns, putative_bc_csv, batch_size
                     read_idx += batch_len
     putative_bc_f.close()
 
-def _match_bc_row(row, whitelist, max_ed, minQ): #这里的whitelist就是指
+def _match_bc_row(row, whitelist, max_ed, minQ):
     
     strand = '+'
     
@@ -295,6 +295,10 @@ def assign_read_batches(r_batch, whitelist, max_ed, gz, minQ=0):
         if bc.polyA_starts: #若polyA_starts不为空 目前为空的原因是umi固定序列左边的read太少，有可能是umi序列不完整
             seq = r.seq[:int(bc.polyA_starts)]
             qscore = r.qscore[:int(bc.polyA_starts)]
+        else:
+            seq = r.seq[:int(bc.umi_fixed_locs) -10 ] #如果没有找polyT,则根据umi位置进行裁剪
+            qscore = r.qscore[:int(bc.umi_fixed_locs) - 10]
+            
         # write to fastq
         out_buffer += f"@{bc.BC_corrected}_{bc.putative_umi}#{bc.read_id}_{bc.strand}\tCB:Z:{bc.BC_corrected}\tUB:Z:{bc.putative_umi}\n"
         out_buffer += str(seq) + '\n' 
