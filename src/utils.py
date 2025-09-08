@@ -63,17 +63,17 @@ def read_batch_generator(fastq_fns, batch_size):   #输出batch size read info
                     yield batch
 
 def reverse_complement(seq):
-	'''
-	Args: <str>
-		queried seq
-	Returns: <str>
-		reverse_complement seq
-	'''
-	comp = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 
-					'a': 't', 'c': 'g', 'g': 'c', 't': 'a'}
-	letters = \
-		[comp[base] if base in comp.keys() else base for base in seq]
-	return ''.join(letters)[::-1]
+    '''
+    Args: <str>
+        queried seq
+    Returns: <str>
+        reverse_complement seq
+    '''
+    comp = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 
+                    'a': 't', 'c': 'g', 'g': 'c', 't': 'a'}
+    letters = \
+        [comp[base] if base in comp.keys() else base for base in seq]
+    return ''.join(letters)[::-1]
 
 def polyA_trimming_idx(seq, seed="AAAA", window=10, min_A=7, min_tail_len=8):
     """
@@ -295,6 +295,10 @@ def assign_read_batches(r_batch, whitelist, max_ed, gz, minQ=0):
         if bc.polyA_starts: #若polyA_starts不为空 目前为空的原因是umi固定序列左边的read太少，有可能是umi序列不完整
             seq = r.seq[:int(bc.polyA_starts)]
             qscore = r.qscore[:int(bc.polyA_starts)]
+        else:
+            seq = r.seq[:int(bc.umi_fixed_locs) -10 ] #如果没有找polyT,则根据umi位置进行裁剪
+            qscore = r.qscore[:int(bc.umi_fixed_locs) - 10]
+            
         # write to fastq
         out_buffer += f"@{bc.BC_corrected}_{bc.putative_umi}#{bc.read_id}_{bc.strand}\tCB:Z:{bc.BC_corrected}\tUB:Z:{bc.putative_umi}\n"
         out_buffer += str(seq) + '\n' 
