@@ -53,6 +53,7 @@ umi_fixed_locs = []  #umi固定序列的5'端位置
 #trim_idxs = []
 post_umi_flankings = []
 polyA_starts = []
+read_types = []
 BC_fixed = reverse_complement(BC_fixed) #reverse complement
 umi_fixed = reverse_complement(umi_fixed)
 
@@ -67,6 +68,7 @@ for batch in read_batchs:
         umi_fixed_loc= None
         post_umi_flanking = None
         polyA_start = None
+        read_type = None
         BC_fixed_loc = rfind_with_negative(part_seq, BC_fixed)
         #print(BC_fixed_loc)
         bc_fixed_locs.append(BC_fixed_loc)
@@ -79,6 +81,7 @@ for batch in read_batchs:
             find_umi_seq = read_info.seq[-36:-26] #barcode再往前10bp去找固定序列
             umi_fixed_loc_re = rfind_with_negative(find_umi_seq, umi_fixed) 
             if umi_fixed_loc_re != -1:
+                
                 umi_fixed_loc = umi_fixed_loc_re - 26 #相对于read的位置
                 umi_fixed_locs.append(umi_fixed_loc)
                 umi = read_info.seq[umi_fixed_loc - 10 : umi_fixed_loc + 5]
@@ -91,15 +94,34 @@ for batch in read_batchs:
                 if last_polyA_idx: #可以检测到polyA
                     polyA_start =  last_polyA_idx - 10 + umi_fixed_loc #相对于整个read
                     polyA_starts.append(polyA_start)
+                    read_type = 1
+                    read_types.append(read_type)
                 else:
                     polyA_starts.append(polyA_start)
-            else:
-                umis.append(umi)
-                umi_fixed_locs.append(umi_fixed_loc)
-                post_umi_flankings.append(post_umi_flanking)
-                polyA_starts.append(polyA_start)
+                    read_type = 2
+                    read_types.append(read_type)
                 
-        elif BC_fixed_loc < -16:
+                
+            else: #如果找不到umi 直接往前截取15bp 
+                umi = read_info.seq[-26-15:-26] #-26-15 粗暴的认为是umi的开头位置
+                umis.append(umi)
+                umi_fixed_locs.append(umi_fixed_loc) #固定序列location还是为NaN
+                post_umi_flanking = read_info.seq[-26-15 -5  :-26-15]
+                post_umi_flankings.append(post_umi_flanking)
+                #鉴定polyA的起始位置
+                seq_polyA = read_info.seq[-26 -100:-26] #直接从barcode开头搜索
+                last_polyA_idx = polyA_trimming_idx_neg(seq_polyA)
+                if last_polyA_idx: #可以检测到polyA
+                    polyA_start =  last_polyA_idx + (-26) #相对于整个read
+                    polyA_starts.append(polyA_start)
+                    read_type = 3
+                    read_types.append(read_type)
+                else:
+                    polyA_starts.append(polyA_start)
+                    read_type = 4
+                    read_types.append(read_type)
+                
+        elif BC_fixed_loc < -16: #如果barcode比较靠左
             putative_bc = read_info.seq[BC_fixed_loc-10 : BC_fixed_loc+16]
             putative_bcs.append(putative_bc)
             putative_bc_min_q = min([ord(x) for x in read_info.q_letter[BC_fixed_loc-10:BC_fixed_loc+16]]) -33
@@ -128,24 +150,69 @@ for batch in read_batchs:
                 if last_polyA_idx: #可以检测到
                     polyA_start =  last_polyA_idx - 10 + umi_fixed_loc #相对于整个read
                     polyA_starts.append(polyA_start)
+                    read_type = 5
+                    read_types.append(read_type)
                 else:
                     polyA_starts.append(polyA_start)
+                    read_type = 6
+                    read_types.append(read_type)
                 
-            else:
+            else: # 如果鉴定不到umi
+                umi = read_info.seq[BC_fixed_loc - 10 -15:BC_fixed_loc - 10] #BC_fixed_loc - 10 barcode的起始
                 umis.append(umi)
-                umi_fixed_locs.append(umi_fixed_loc)
+                umi_fixed_locs.append(umi_fixed_loc) #NaN
+                post_umi_flanking = read_info.seq[BC_fixed_loc - 10 -15 -5 :BC_fixed_loc - 10-15 ]
                 post_umi_flankings.append(post_umi_flanking)
-                polyA_starts.append(polyA_start)
+                
+                seq_polyA = read_info.seq[BC_fixed_loc -10 -100:BC_fixed_loc -10] #直接从barcode开头搜索
+                last_polyA_idx = polyA_trimming_idx_neg(seq_polyA)
+                if last_polyA_idx: #可以检测到polyA
+                    polyA_start =  last_polyA_idx + (BC_fixed_loc -10) #相对于整个read
+                    polyA_starts.append(polyA_start)
+                    read_type = 7
+                    read_types.append(read_type)
+                else:
+                    polyA_starts.append(polyA_start)
+                    read_type = 8
+                    read_types.append(read_type)
             
             
-        elif BC_fixed_loc == -1: 
+        elif BC_fixed_loc == -1:  #鉴定不到GGAAGG，所以是-1
             #putative_bcs.append("No BC")
             putative_bcs.append(part_seq[-26:]) #直接输出后26bp
             putative_bc_min_qs.append(putative_bc_min_q)
-            umi_fixed_locs.append(umi_fixed_loc)
-            umis.append(umi)
-            post_umi_flankings.append(post_umi_flanking)
-            polyA_starts.append(polyA_start)
+            #虽然没有找到barcode，但是可以单独找umi
+            find_umi_seq = read_info.seq[:-40] 
+            umi_fixed_loc_re = rfind_with_negative(find_umi_seq, umi_fixed)  #直接在后40bp找umi
+            if umi_fixed_loc_re != -1:
+                umi_fixed_loc = umi_fixed_loc_re #相对于read的位置
+                umi_fixed_locs.append(umi_fixed_loc)
+                umi = read_info.seq[umi_fixed_loc - 10 : umi_fixed_loc + 5]
+                umis.append(umi)
+                post_umi_flanking = read_info.seq[umi_fixed_loc - 10-5 : umi_fixed_loc - 10]
+                post_umi_flankings.append(post_umi_flanking)
+                #鉴定poly
+                seq_polyA = read_info.seq[umi_fixed_loc - 10 -100 :umi_fixed_loc - 10]
+                last_polyA_idx = polyA_trimming_idx_neg(seq_polyA)
+                if last_polyA_idx: #可以检测到
+                    polyA_start =  last_polyA_idx - 10 + umi_fixed_loc #相对于整个read
+                    polyA_starts.append(polyA_start)
+                    read_type = 9
+                    read_types.append(read_type)
+                else:
+                    polyA_starts.append(polyA_start)
+                    read_type = 10
+                    read_types.append(read_type)
+            else: ### umi鉴定不到
+                #putative_bcs.append(part_seq[-26:]) #直接输出后26bp
+                #putative_bc_min_qs.append(putative_bc_min_q)
+                umi_fixed_locs.append(umi_fixed_loc)
+                umis.append(umi)
+                post_umi_flankings.append(post_umi_flanking)
+                polyA_starts.append(polyA_start)
+                read_type = 11
+                read_types.append(read_type)
+                    
         else:#BC_fixed_loc>-16 右半段barcode不完全 #根据umi来判断barcode，即使是残缺的barcode
             #locate umi
             find_umi_seq = read_info.seq[BC_fixed_loc - 10 -10 :BC_fixed_loc - 10] #barcode再往前10bp去找固定序列
@@ -175,8 +242,12 @@ for batch in read_batchs:
                 if last_polyA_idx: #可以检测到
                     polyA_start =  last_polyA_idx - 10 + umi_fixed_loc #相对于整个read
                     polyA_starts.append(polyA_start)
+                    read_type = 12
+                    read_types.append(read_type)
                 else:
                     polyA_starts.append(polyA_start)
+                    read_type = 13
+                    read_types.append(read_type)
                 
             else: #也没有找到umi
                 putative_bcs.append(part_seq[-26:])
@@ -185,6 +256,8 @@ for batch in read_batchs:
                 umis.append(umi)
                 post_umi_flankings.append(post_umi_flanking)
                 polyA_starts.append(polyA_start)
+                read_type = 14
+                read_types.append(read_type)
                 
         #break
 
@@ -199,7 +272,8 @@ rst_df = pd.DataFrame(
         'putative_umi': umis,
          'umi_fixed_locs':umi_fixed_locs,
          'post_umi_flankings':post_umi_flankings,
-         'polyA_starts':polyA_starts
+         'polyA_starts':polyA_starts,
+         'read_types':read_types
         }
         )
 
