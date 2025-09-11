@@ -17,6 +17,16 @@ Strint: A single-cell preprocessing toolkit for full-length transcript identific
 
 With Strint, researchers can streamline raw data processing before downstream single-cell RNA-seq analyses, ensuring reproducibility and accuracy.
 
+Output Files
+
+Strint generates the following output files:
+  • BC_corrected.csv — Barcode-corrected information table
+  • empty_bc_list.csv — Empty barcode list inferred from the barcode rank plot
+  • knee_plot.png — Barcode rank plot for cell calling
+  • matched_reads.fastq.gz — Reads assigned to valid barcodes
+  • putative_bc.csv — Barcode information before correction
+  • unmatched_reads.fastq.gz — Reads without valid barcodes
+  • whitelist.csv — Final whitelist of selected barcodes
 
 ```
 usage: main3.py [-h] --full_bc_whitelist FULL_BC_WHITELIST [--out_dir OUT_DIR] [--batch_size BATCH_SIZE] [--BC_fixed BC_FIXED] [--umi_fixed UMI_FIXED] [--putative_bc_out PUTATIVE_BC_OUT] [--out_whitelist_fn OUT_WHITELIST_FN]
