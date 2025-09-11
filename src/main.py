@@ -14,6 +14,7 @@ import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils import *
 from args_parser import set_parser
+import os 
 
 args = set_parser()
 fl_fq = args.fastq_fns
@@ -304,6 +305,10 @@ with open(out_emptydrop_fn, 'w') as f:
 
 demul_count_tot, count_tot, big_df = assign_read(fastq_fns=fastq_fns, fastq_out = fastq_out, putative_bc_csv=putative_bc_csv, 
                     whitelsit_csv=whitelsit_csv, max_ed=max_ed, n_process=n_process, batchsize=batchsize)
+
+#输出big_df
+big_df.to_csv(os.path.join(out_dir, "BC_corrected.csv"), index=False)
+#print(f"BC_corrected.csv 已保存到: {bc_corrected_path}")
 
 #计算同时具有有效barcode和有效umi的read个数（也就是输出的fq的数量）
 mask = (big_df['BC_corrected'].notna()) & (big_df['BC_corrected'] != '') \
