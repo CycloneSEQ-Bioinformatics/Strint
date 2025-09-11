@@ -24,7 +24,7 @@ Strint generates the following output files:
 - **BC_corrected.csv** — Barcode-corrected information table  
 - **empty_bc_list.csv** — Empty barcode list inferred from the barcode rank plot  
 - **knee_plot.png** — Barcode rank plot for cell calling  
-- **matched_reads.fastq.gz** — Reads assigned to valid barcodes  
+- **matched_reads.fastq.gz** — Reads assigned to valid barcodes, with barcode and UMI sequences trimmed off  
 - **putative_bc.csv** — Barcode information before correction  
 - **unmatched_reads.fastq.gz** — Reads without valid barcodes  
 - **whitelist.csv** — Final whitelist of selected barcodes  
