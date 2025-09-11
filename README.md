@@ -8,7 +8,7 @@
 ```
 
 # Strint
-Strint: A single-cell preprocessing toolkit for full-length transcript identification, barcode demultiplexing, and UMI extraction.
+Strint: A single-cell preprocessing toolkit for full-length transcript identification, barcode demultiplexing, and UMI extraction, adapted for the BGI C4 single-cell platform.
 
 
 - **Full-length transcript identification** 🧬  
@@ -16,6 +16,18 @@ Strint: A single-cell preprocessing toolkit for full-length transcript identific
 - **UMI identification** 🧩  
 
 With Strint, researchers can streamline raw data processing before downstream single-cell RNA-seq analyses, ensuring reproducibility and accuracy.
+
+
+Output Files
+
+Strint generates the following output files:
+  • BC_corrected.csv — Barcode-corrected information table
+  • empty_bc_list.csv — Empty barcode list inferred from the barcode rank plot
+  • knee_plot.png — Barcode rank plot for cell calling
+  • matched_reads.fastq.gz — Reads assigned to valid barcodes
+  • putative_bc.csv — Barcode information before correction
+  • unmatched_reads.fastq.gz — Reads without valid barcodes
+  • whitelist.csv — Final whitelist of selected barcodes
 
 
 ```
