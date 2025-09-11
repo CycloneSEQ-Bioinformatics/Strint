@@ -8,7 +8,7 @@
 ```
 
 # Strint
-Strint: A single-cell preprocessing toolkit for full-length transcript identification, barcode demultiplexing, and UMI extraction.
+Strint: A single-cell preprocessing toolkit for full-length transcript identification, barcode demultiplexing, and UMI extraction, adapted for the BGI C4 single-cell platform.
 
 
 - **Full-length transcript identification** 🧬  
