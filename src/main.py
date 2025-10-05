@@ -316,7 +316,17 @@ mask = (big_df['BC_corrected'].notna()) & (big_df['BC_corrected'] != '') \
 
 double_count = mask.sum()
 
-print(f"Number of full length reads: {count_tot}")
-print(f"Number of reads with valid barcode: {demul_count_tot}")
-print(f"Number of reads with valid barcode and valid umi: {double_count}")
-print(f"Proportion of reads with valid barcodes: {np.round(demul_count_tot/count_tot, 3)}")
+# === 统计并输出到 summary.txt ===
+summary_path = os.path.join(out_dir, "summary.txt")
+
+with open(summary_path, "w") as f:
+    print(f"Number of full length reads: {count_tot}", file=f)
+    print(f"Number of reads with valid barcode: {demul_count_tot}", file=f)
+    print(f"Number of reads with valid barcode and valid umi: {double_count}", file=f)
+    print(f"Proportion of reads with valid barcodes: {np.round(demul_count_tot/count_tot, 3)}", file=f)
+
+print(f"\nSummary saved to: {summary_path}")
+#print(f"Number of full length reads: {count_tot}")
+#print(f"Number of reads with valid barcode: {demul_count_tot}")
+#print(f"Number of reads with valid barcode and valid umi: {double_count}")
+#print(f"Proportion of reads with valid barcodes: {np.round(demul_count_tot/count_tot, 3)}")
