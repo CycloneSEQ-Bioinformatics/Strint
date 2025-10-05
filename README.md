@@ -30,7 +30,7 @@ Strint generates the following output files:
 - **whitelist.csv** — Final whitelist of selected barcodes  
 
 ```
-usage: main3.py [-h] --full_bc_whitelist FULL_BC_WHITELIST [--out_dir OUT_DIR] [--batch_size BATCH_SIZE] [--BC_fixed BC_FIXED] [--umi_fixed UMI_FIXED] [--putative_bc_out PUTATIVE_BC_OUT] [--out_whitelist_fn OUT_WHITELIST_FN]
+usage: main.py [-h] --full_bc_whitelist FULL_BC_WHITELIST [--out_dir OUT_DIR] [--batch_size BATCH_SIZE] [--BC_fixed BC_FIXED] [--umi_fixed UMI_FIXED] [--putative_bc_out PUTATIVE_BC_OUT] [--out_whitelist_fn OUT_WHITELIST_FN]
                 [--out_emptydrop_fn OUT_EMPTYDROP_FN] [--exp_cells EXP_CELLS] [--out_plot_fn OUT_PLOT_FN] [--DEFAULT_EMPTY_DROP_MIN_ED DEFAULT_EMPTY_DROP_MIN_ED] [--DEFAULT_EMPTY_DROP_NUM DEFAULT_EMPTY_DROP_NUM]
                 [--fastq_out FASTQ_OUT] [--max_ed MAX_ED] [--minQ MINQ] [--threads THREADS]
                 <input fastq filename/directory>
