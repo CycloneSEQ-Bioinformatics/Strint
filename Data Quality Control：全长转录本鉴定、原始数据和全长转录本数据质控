@@ -1,0 +1,44 @@
+Data Quality Control：全长转录本鉴定、原始数据和全长转录本数据质控
+Alignments：参考基因组比对、参考转录组比对
+Transcript Identification, Annotation, and Quantification：转录本鉴定与注释、转录本定量、转录本深度计算、转录本饱和度计算 
+Advanced Functional Analyses：可变剪接分析、基因融合、lncRNA注释
+
+1.
+full_len_reads/ 处理txt，sample名称
+qc/ 六个柱状图 和之前一样
+
+2.
+genome_alignments/   U3.genome.read_aln_stats.tsv
+
+transcriptome_alignments/ U3.transcriptome.read_aln_stats.tsv
+
+3.
+transcript_annotation/  U3.transcript_structural_category.png
+transcript_quantification/ U3.quant.sf
+transcript_depth/ U3.transcript_depth.png
+transcript_saturation/ U3.saturation_curve.png
+
+4.
+
+lncRNA_annotation/ U3.lncRNA_classes.txt 
+alternative_splicing/  U3_event.add_genename.psi U3_isoform.add_genename.psi
+gene_fusion/ U3.gene_fusion_circos.png
+
+
+加两个参数：genome_alignment gene_fusion
+
+
+或者用2个参数控制，第一个为false，报告里就不输出参考基因组比对、转录本深度计算、转录本鉴定与注释、lncRNA注释；第二个为false，报告里就不输出基因融合
+
+fl_df_html=fl_df_html,
+fl_reads_images=fl_reads_images,
+genome_align_df_html=genome_align_df_html,
+transcriptome_align_df_html=transcriptome_align_df_html,
+transcript_annotation_png=transcript_annotation_png,
+transcript_quantification_df_html=transcript_quantification_df_html,
+transcript_depth_png=transcript_depth_png,
+transcript_saturation_png=transcript_saturation_png,
+lncRNA_annotation_df_html=lncRNA_annotation_df_html,
+alternative_splicing_event_df_html=alternative_splicing_event_df_html,
+alternative_splicing_isoform_df_html=alternative_splicing_isoform_df_html,
+gene_fusion_png=gene_fusion_png
